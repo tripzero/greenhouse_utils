@@ -37,7 +37,7 @@ def airToSoil(air, soil):
 		#status("air energy: {}, air temp {}, soil energy: {}, soil temp: {}".format(air.energy, air.temperature, soil.energy, soil.temperature))
 		seconds += 1
 
-	print("time to transfer air energy to soil: {} seconds".format(seconds))
+	print("time to transfer air energy to soil: {}hrs".format(seconds/3600.0))
 
 
 
@@ -58,7 +58,7 @@ def airToWater(air, water, soil):
 		radiator.transferTo(water)
 		seconds += 1
 
-	print("time to transfer air energy to water: {} seconds".format(seconds))
+	print("time to transfer air energy to water: {}hrs".format(seconds/3600.0))
 
 
 from multiprocessing import Process

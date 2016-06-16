@@ -18,8 +18,6 @@ TempFinal = Q / mc
 '''
 
 from astral import Location
-from pysolar import radiation
-from pysolar import solar
 from datetime import datetime, timedelta
 import math
 import time as tm
@@ -142,7 +140,8 @@ class ThermalConstants:
 		blackBody = 1
 		aluminum = 0.09
 
-	class Density: #g/m^3
+	class Density: 
+		"g/m^3"
 		air = 1225
 		soil = 1600000
 		water =  1000000
@@ -151,17 +150,19 @@ class ThermalConstants:
 
 	class SpecificHeat:
 		"measured in J/g"
-		water = 4184.0
-		soil = 1480.0
-		air = 1003.0
-		aluminum = 900.0
+		water = 4.184
+		soil = 1.480
+		air = 1.003
+		aluminum = 0.9
 
 	class Conductivity:
+		"in joules/(sec*m*C) or k-value"
 		soil = 1.0
 		water = 0.58
 		pex = 0.4
 		air = 0.024
 		aluminum = 205
+		glass = 0.8
 
 
 def calculateGreenhouseEffect(energyIn, soilTemp, airTemp, outsideAirTemp, greenhouseDimensions, surfaceAbsorbtionRate=0.80, glassReflectionRate=0.90):
@@ -208,6 +209,8 @@ def pexLength(pexSurfaceArea, soilBankVolume):
 
 def findSoilBankArea(waterVolume, waterSurfaceArea, soilBedVolume, soilBedSurfaceArea, minimumTemperature, greenhouseDimensions, year=2014, debug=False):
 	import pdb
+	from pysolar import radiation
+	from pysolar import solar
 
 	greenhouseVolume = greenhouseDimensions[0] * greenhouseDimensions[1] * greenhouseDimensions[2] * ThermalConstants.Density.air
 	greenhouseHeight = greenhouseDimensions[2]
