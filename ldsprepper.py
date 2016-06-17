@@ -1,15 +1,15 @@
 import thermalobject
-import geothermal
+from thermalobject import ThermalConstants
 
 air_volume = 204
-airMass = air_volume * geothermal.ThermalConstants.Density.air
+airMass = air_volume * ThermalConstants.Density.air
 air = thermalobject.Air(mass=airMass)
 
 waterMass = 114 * 20 * 1000
 water = thermalobject.Water(mass=waterMass)
 
 "40ft x 20ft x 8ft deep"
-soilMass = geothermal.ThermalConstants.Density.soil * 12 * 6 * 2.4
+soilMass = ThermalConstants.Density.soil * 12 * 6 * 2.4
 
 "length of tube * circumference of tube.  Tube length is 82m.  Tube radius 0.0508m"
 soilContactArea = 26

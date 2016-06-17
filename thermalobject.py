@@ -1,8 +1,76 @@
 """
 	thermal object
 """
+import math
 
-import geothermal
+def tempFinal(mass1, specificHeat1, temp1, mass2, specificHeat2, temp2):
+	return (mass1 * specificHeat1 * temp1 + mass2 * specificHeat2 * temp2) / (mass1 * specificHeat1 + mass2 * specificHeat2)
+
+def energyTransferred(k, tempFinal, tempStart, area, time, distance):
+	"this is for conduction"
+	return (k * area * (tempFinal - tempStart) * time) / distance
+
+def convectionEnergyTransfer(area, tempFinal, tempStart):
+
+	deltaT = (tempFinal - tempStart)
+	q = 1.77 * area * math.pow(abs(deltaT), 5.0/4.0)
+
+	if deltaT < 0:
+		q *= -1
+
+	return q
+
+def energyCapacity(c, m, t):
+	return m * c * t
+
+def time(k, area, tempHot, tempStart, distance, energy):
+	return (k * area * (tempHot - tempCold)) / (distance * energy)
+
+def temperature(c, mass, energy):
+	return energy / (c * mass)
+
+def radiantEnergy(emissivity, surfaceArea, temperature, temperature2 = -273):
+	" Q = emissivity * 5.67x10-8 * surfaceArea * (temperature^4 - temperature2^4)"
+	"We assume temp is C, we want K here"
+
+	temperature = 273 + temperature
+	temperature2 = 273 + temperature2
+
+	return emissivity * (5.67 * math.pow(10, -8)) * surfaceArea * (math.pow(temperature, 4) - math.pow(temperature2, 4))
+
+
+class ThermalConstants:
+	class Emissivity:
+		soil = 0.38
+		water = 0.67
+		blackBody = 1
+		aluminum = 0.09
+
+	class Density: 
+		"g/m^3"
+		air = 1225
+		soil = 1600000
+		water =  1000000
+		aluminum = 2712000
+
+
+	class SpecificHeat:
+		"measured in J/g"
+		water = 4.184
+		soil = 1.480
+		air = 1.003
+		aluminum = 0.9
+
+	class Conductivity:
+		"in joules/(sec*m*C) or k-value"
+		soil = 1.0
+		water = 0.58
+		pex = 0.4
+		air = 0.024
+		aluminum = 205
+		glass = 0.8
+
+
 
 class ThermalObject(object):
 	specificHeat = None
@@ -19,19 +87,35 @@ class ThermalObject(object):
 		self.density = density
 		self.conducitivty = conducitivty
 		self.emissivity = emissivity
+		self.dimensions = dimensions
+
 		if mass:
 			self.mass = mass
+			if not dimensions:
+				self.dimensions = (math.pow(mass / density, 1 / 3.0), math.pow(mass / density, 1 / 3.0), math.pow(mass / density, 1 / 3.0))
+
 		elif dimensions != None:
 			self.mass = dimensions[0] * dimensions[1] * dimensions[2] * self.density
-		self.dimensions = dimensions
+
 		self.temperature = temperature
 
 
 	@property
 	def energy(self):
-		return geothermal.energyCapacity(self.specificHeat, self.mass, self.temperature)
+		return energyCapacity(self.specificHeat, self.mass, self.temperature)
+
+	@energy.setter
+	def energy(self, value):
+		self.temperature = temperature(self.specificHeat, self.mass, value)
+
+	def addEnergy(self, value):
+		self.energy += value
 
 	def estimateContactArea(self, otherObject=None):
+
+		if not len(self.dimensions):
+			return None
+
 		if otherObject:
 			#get contact area:
 			a1 = max(otherObject.dimensions[0] * otherObject.dimensions[1], otherObject.dimensions[0] * otherObject.dimensions[2])
@@ -69,10 +153,10 @@ class ThermalObject(object):
 			et = None
 
 			if not convection:
-				et = geothermal.energyTransferred(conducitivty, tf, ts, contactArea, 1, length)
+				et = energyTransferred(conducitivty, tf, ts, contactArea, 1, length)
 
 			else:
-				et = geothermal.convectionEnergyTransfer(contactArea, otherObject.temperature, self.temperature)
+				et = convectionEnergyTransfer(contactArea, otherObject.temperature, self.temperature)
 
 
 			totalEt+=et
@@ -82,22 +166,17 @@ class ThermalObject(object):
 
 		return totalEt
 
-	def addEnergy(self, energy):
-		self.temperature = geothermal.temperature(self.specificHeat, self.mass, energy + self.energy)
-
 	def removeEnergy(self, energy):
-		self.addEnergy( -1 * energy)
+		self.energy -= energy
 
-	def radiate(self, contactArea = None, time = 1):
+	def radiate(self, contactArea = None, seconds = 1):
 		if not contactArea:
 			contactArea = self.estimateContactArea()
 
 		totalRadiationLoss = 0
 
-		for s in range(time):
-			print (self.emissivity, contactArea, self.temperature)
-
-			radiation = geothermal.radiantEnergy(self.emissivity, contactArea, self.temperature)
+		for s in range(seconds):
+			radiation = radiantEnergy(self.emissivity, contactArea, self.temperature)
 			self.removeEnergy(radiation)
 			totalRadiationLoss += radiation
 
@@ -107,24 +186,24 @@ class ThermalObject(object):
 class Water(ThermalObject):
 
 	def __init__(self, dimensions=None, temperature=15, mass=None):
-		ThermalObject.__init__(self, geothermal.ThermalConstants.SpecificHeat.water, geothermal.ThermalConstants.Density.water, geothermal.ThermalConstants.Conductivity.water, geothermal.ThermalConstants.Emissivity.water, dimensions, temperature, mass=mass)
+		ThermalObject.__init__(self, ThermalConstants.SpecificHeat.water, ThermalConstants.Density.water, ThermalConstants.Conductivity.water, ThermalConstants.Emissivity.water, dimensions, temperature, mass=mass)
 
 
 class Soil(ThermalObject):
 
 	def __init__(self, dimensions=None, temperature=15, mass=None):
-		ThermalObject.__init__(self, geothermal.ThermalConstants.SpecificHeat.soil, geothermal.ThermalConstants.Density.soil, geothermal.ThermalConstants.Conductivity.soil, geothermal.ThermalConstants.Emissivity.soil, dimensions, temperature, mass=mass)
+		ThermalObject.__init__(self, ThermalConstants.SpecificHeat.soil, ThermalConstants.Density.soil, ThermalConstants.Conductivity.soil, ThermalConstants.Emissivity.soil, dimensions, temperature, mass=mass)
 
 class Air(ThermalObject):
 
 	def __init__(self, dimensions=None, temperature=15, mass=None):
-		ThermalObject.__init__(self, geothermal.ThermalConstants.SpecificHeat.air, geothermal.ThermalConstants.Density.air, geothermal.ThermalConstants.Conductivity.air, geothermal.ThermalConstants.Emissivity.blackBody, dimensions, temperature, mass=mass)
+		ThermalObject.__init__(self, ThermalConstants.SpecificHeat.air, ThermalConstants.Density.air, ThermalConstants.Conductivity.air, ThermalConstants.Emissivity.blackBody, dimensions, temperature, mass=mass)
 
 
 class Aluminum(ThermalObject):
 
 	def __init__(self, dimensions=None, temperature=15, mass=None):
-		ThermalObject.__init__(self, geothermal.ThermalConstants.SpecificHeat.aluminum, geothermal.ThermalConstants.Density.aluminum, geothermal.ThermalConstants.Conductivity.aluminum, geothermal.ThermalConstants.Emissivity.aluminum, dimensions, temperature, mass=mass)
+		ThermalObject.__init__(self, ThermalConstants.SpecificHeat.aluminum, ThermalConstants.Density.aluminum, ThermalConstants.Conductivity.aluminum, ThermalConstants.Emissivity.aluminum, dimensions, temperature, mass=mass)
 
 
 class Glass(ThermalObject):

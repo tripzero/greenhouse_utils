@@ -19,6 +19,8 @@ TempFinal = Q / mc
 
 from astral import Location
 from datetime import datetime, timedelta
+from thermalobject import *
+
 import math
 import time as tm
 import os.path
@@ -46,42 +48,6 @@ def debugOut(msg):
 		pyotherside.send("debug", msg)
 	else:
 		print(msg)
-
-
-def tempFinal(mass1, specificHeat1, temp1, mass2, specificHeat2, temp2):
-	return (mass1 * specificHeat1 * temp1 + mass2 * specificHeat2 * temp2) / (mass1 * specificHeat1 + mass2 * specificHeat2)
-
-def energyTransferred(k, tempFinal, tempStart, area, time, distance):
-	"this is for conduction"
-	return (k * area * (tempFinal - tempStart) * time) / distance
-
-def convectionEnergyTransfer(area, tempFinal, tempStart):
-
-	deltaT = (tempFinal - tempStart)
-	q = 1.77 * area * math.pow(abs(deltaT), 5.0/4.0)
-
-	if deltaT < 0:
-		q *= -1
-
-	return q
-
-def energyCapacity(c, m, t):
-	return m * c * t
-
-def time(k, area, tempHot, tempStart, distance, energy):
-	return (k * area * (tempHot - tempCold)) / (distance * energy)
-
-def temperature(c, mass, energy):
-	return energy / (c * mass)
-
-def radiantEnergy(emissivity, surfaceArea, temperature, temperature2 = -273):
-	" Q = emissivity * 5.67x10-8 * surfaceArea * (temperature^4 - temperature2^4)"
-	"We assume temp is C, we want K here"
-
-	temperature = 273 + temperature
-	temperature2 = 273 + temperature2
-
-	return emissivity * (5.67 * math.pow(10, -8)) * surfaceArea * (math.pow(temperature, 4) - math.pow(temperature2, 4))
 
 def wuGetAirTemperature(date):
 
@@ -132,39 +98,6 @@ def getRadiationVisibilityCoefficient(condition):
 
 	return 1.0
 
-
-class ThermalConstants:
-	class Emissivity:
-		soil = 0.38
-		water = 0.67
-		blackBody = 1
-		aluminum = 0.09
-
-	class Density: 
-		"g/m^3"
-		air = 1225
-		soil = 1600000
-		water =  1000000
-		aluminum = 2712000
-
-
-	class SpecificHeat:
-		"measured in J/g"
-		water = 4.184
-		soil = 1.480
-		air = 1.003
-		aluminum = 0.9
-
-	class Conductivity:
-		"in joules/(sec*m*C) or k-value"
-		soil = 1.0
-		water = 0.58
-		pex = 0.4
-		air = 0.024
-		aluminum = 205
-		glass = 0.8
-
-
 def calculateGreenhouseEffect(energyIn, soilTemp, airTemp, outsideAirTemp, greenhouseDimensions, surfaceAbsorbtionRate=0.80, glassReflectionRate=0.90):
 
 	surfaceArea = greenhouseDimensions[0] * greenhouseDimensions[1]
@@ -207,30 +140,38 @@ def pexLength(pexSurfaceArea, soilBankVolume):
 	spacing = 0.11 #m
 	return soilBankVolume / pexSurfaceArea * (spacing * 2)
 
-def findSoilBankArea(waterVolume, waterSurfaceArea, soilBedVolume, soilBedSurfaceArea, minimumTemperature, greenhouseDimensions, year=2014, debug=False):
+def findSoilBankArea(waterMass, waterSurfaceArea, soilBedMass, soilBedSurfaceArea, minimumTemperature, greenhouseDimensions, startingTemperature = 15, year=2015, debug=False):
 	import pdb
 	from pysolar import radiation
 	from pysolar import solar
 
-	greenhouseVolume = greenhouseDimensions[0] * greenhouseDimensions[1] * greenhouseDimensions[2] * ThermalConstants.Density.air
+	greenhouseVolume = greenhouseDimensions[0] * greenhouseDimensions[1] * greenhouseDimensions[2]
 	greenhouseHeight = greenhouseDimensions[2]
 	greenhouseSurfaceArea = greenhouseDimensions[0] * greenhouseDimensions[1]
 
-	airVolume = greenhouseVolume * ThermalConstants.Density.air
-	soilBankVolume = 10 #g
+	airMass = greenhouseVolume * ThermalConstants.Density.air
+	soilBankMass = 10 #g
+	soilBedVolume = soilBedMass / ThermalConstants.Density.soil
+
 	pexRadius = 1.5875 #cm
 	surfaceAreaPex = (2 * math.pi * pexRadius) / 100 #m^2
+
+	solar_efficiency = 0.7
+	greenhouse_effect = 0.33 #you will lose this percentage of energy in radiation. if the rate is 0.9, you will retain 10% of your radiated energy
 
 	fail = True
 	failDate = None
 	failTemperature = None
 
 	while fail:
-		energyWater = energyCapacity(ThermalConstants.SpecificHeat.water, waterVolume, minimumTemperature)
-		energySoilBank = energyCapacity(ThermalConstants.SpecificHeat.soil, soilBankVolume, minimumTemperature)
-		energySoilBed = energyCapacity(ThermalConstants.SpecificHeat.soil, soilBedVolume, minimumTemperature)
-		energyAir = energyCapacity(ThermalConstants.SpecificHeat.air, airVolume, minimumTemperature)
-		soilTemp = minimumTemperature
+		water = Water(mass = waterMass, temperature = startingTemperature)
+		soilBank = Soil(mass = soilBankMass, temperature = startingTemperature)
+		soilBed = Soil(mass = soilBedMass, temperature = startingTemperature)
+		greenhouse = Soil(mass = greenhouseSurfaceArea * ThermalConstants.Density.soil, temperature = startingTemperature)
+		air = Air(mass = airMass, temperature = startingTemperature)
+		air_outside = Air(mass = 99999999999999, temperature = startingTemperature)
+		
+		soilBankVolume = soilBankMass / ThermalConstants.Density.soil
 
 		fail = False
 		date = datetime(year, 1, 1)
@@ -246,8 +187,13 @@ def findSoilBankArea(waterVolume, waterSurfaceArea, soilBedVolume, soilBedSurfac
 			condition = "Clear"
 			outsideAirTemp = float(minAirTemp)
 
+			print("calculating day: {}.  Soil bed: {}, water: {}, greenhouse: {}".format(date, soilBed.temperature, water.temperature, greenhouse.temperature))
+
+			air_high_temp = 15
+			
 			"run through every second in the day"
 			for second in range(86400):
+
 
 				solarAlt = solar.get_altitude(45.542384, -122.961576, date)
 
@@ -269,83 +215,48 @@ def findSoilBankArea(waterVolume, waterSurfaceArea, soilBedVolume, soilBedSurfac
 					else:
 						outsideAirTemp = float(minAirTemp)
 
-				airTemp = temperature(ThermalConstants.SpecificHeat.air, airVolume, energyAir)
+				air_outside.temperature = outsideAirTemp
 
-				"calculate estimated greenhouse effect:"
+				"add solar energy to system:"
 
-				soilTemp, airTemp = calculateGreenhouseEffect(solarPower * greenhouseSurfaceArea, soilTemp, airTemp, outsideAirTemp, greenhouseDimensions)
-
-				energyAir = energyCapacity(ThermalConstants.SpecificHeat.air, airVolume, airTemp)
-
-				"add the energy to water with a 0.7 effeciency rate:"
-				energyWater += solarPower * waterSurfaceArea * 0.7
-
-				waterTemp = temperature(ThermalConstants.SpecificHeat.water, waterVolume, energyWater)
-				soilBedTemp = temperature(ThermalConstants.SpecificHeat.soil, soilBedVolume, energySoilBed)
-				soilBankTemp = temperature(ThermalConstants.SpecificHeat.soil, soilBankVolume, energySoilBank)
+				water.energy += solarPower * waterSurfaceArea * solar_efficiency
+				greenhouse.energy += solarPower * greenhouseSurfaceArea * solar_efficiency
+				
+				"the soil bed is likely shadowed by plants"
+				#soilBed.energy += solarPower * soilBedSurfaceArea * solar_efficiency
 
 				"transfer energy first to soil bed then remove the energy transferred from the water"
-				tf = tempFinal(waterVolume, ThermalConstants.SpecificHeat.water, waterTemp, soilBedVolume, ThermalConstants.SpecificHeat.soil, soilBedTemp)
-
 				pl = pexLength(surfaceAreaPex, soilBedVolume)
 
-				thermalConductivity = None
-
-				"determine the direction of the heat transfer"
-
-				if tf > soilBedTemp:
-					thermalConductivity = ThermalConstants.Conductivity.soil
-				else:
-					thermalConductivity = ThermalConstants.Conductivity.water
-
-				energySoilBed += energyTransferred(thermalConductivity, tf, soilBedTemp, pl, 1, 0.22)
-				energyWater += energyTransferred(thermalConductivity, tf, waterTemp, pl, 1, pexRadius / 100)
+				water.transferTo(soilBed, pl, length=0.22)
 
 				"now transfer energy to the soil bank from water:"
 
-				waterTemp = temperature(ThermalConstants.SpecificHeat.water, waterVolume, energyWater)
-				tf = tempFinal(waterVolume, ThermalConstants.SpecificHeat.water, waterTemp, soilBankVolume, ThermalConstants.SpecificHeat.soil, soilBankTemp)
-
 				pl = pexLength(surfaceAreaPex, soilBankVolume)
 
-				thermalConductivity = None
-
-				"determine the direction of the heat transfer"
-
-				if tf > soilBankTemp:
-					thermalConductivity = ThermalConstants.Conductivity.soil
-				else:
-					thermalConductivity = ThermalConstants.Conductivity.water
-
-				energySoilBank += energyTransferred(thermalConductivity, tf, soilBankTemp, pl, 1, 0.22)
-				energyWater += energyTransferred(thermalConductivity, tf, waterTemp, pl, 1, pexRadius / 100)
+				water.transferTo(soilBank, pl, length=0.22)
 
 				"caculate losses to the air."
 
-				soilBedTemp = temperature(ThermalConstants.SpecificHeat.soil, soilBedVolume, energySoilBed)
-
-				gain = convectionEnergyTransfer(soilBedSurfaceArea, airTemp, soilBedTemp)
-
-				energySoilBed += gain
-				energyAir -= gain
-
-				gain = convectionEnergyTransfer(waterSurfaceArea, airTemp, waterTemp)
-
-				energyWater += gain
-				energyAir -= gain
-
-				"Check to see if our soil bed temp is below the setpoint:"
-
-				soilBedTemp = temperature(ThermalConstants.SpecificHeat.soil, soilBedVolume, energySoilBed)
-				waterTemp = temperature(ThermalConstants.SpecificHeat.water, waterVolume, energyWater)
+				greenhouse.transferTo(air, greenhouseSurfaceArea)
+				soilBed.transferTo(air, soilBedSurfaceArea)
+				water.transferTo(air, waterSurfaceArea)
 
 				"determine air loss to outside air"
 
 				airInsulationThickness = 0.127 #m
 
-				energyAir += energyTransferred(ThermalConstants.Conductivity.air, outsideAirTemp, airTemp, greenhouseSurfaceArea + (greenhouseHeight * 2), 1, airInsulationThickness)
+				air.transferTo(air_outside, greenhouseSurfaceArea, length = airInsulationThickness)
 
-				airTemp = temperature(ThermalConstants.SpecificHeat.air, airVolume, energyAir)
+				"radiate to the outside world minus greenhouse effect"
+
+				greenhouse.energy -= (greenhouse.radiate() * greenhouse_effect)
+				water.energy -= (water.radiate() * greenhouse_effect)
+				soilBed.energy -= (soilBed.radiate() * greenhouse_effect)
+				air.energy -= (air.radiate() * greenhouse_effect)
+
+				if air.temperature > air_high_temp:
+					air_high_temp = air.temperature
 
 				if debug:
 					pdb.set_trace()
@@ -364,30 +275,35 @@ def findSoilBankArea(waterVolume, waterSurfaceArea, soilBedVolume, soilBedSurfac
 
 				date += timedelta(seconds = 1)
 
-			if soilBedTemp < minimumTemperature:
+			print("daily high air temp: {}".format(air_high_temp))
+
+			"check to see if we are colder than the min temperature"
+			if soilBed.temperature < minimumTemperature:
 				failDate = date
-				failTemperature = airTemp
+				failTemperature = soilBed.temperature
 				fail = True
 				if hasOtherSide:
 					pyotherside.send("failDate", failDate)
-				print("We failed at {0} with temperature = {1} and soil bank mass = {2}".format(failDate, failTemperature, soilBankVolume))
-				break
+
+				print("We failed at {0} with temperature = {1} and soil bank mass = {2}".format(failDate, failTemperature, soilBankMass))
+				print("air temps: inside: {} outside: {}".format(air.temperature, air_outside.temperature))
 
 		if fail:
 			"we kinda failed, so let's double our soilBankVolume and try again"
-			soilBankVolume += soilBankVolume
+			soilBankMass += soilBankMass
 
-	print ("success with soil bank mass: {0}".format(soilBankVolume))
+	print ("success with soil bank mass: {0}".format(soilBankMass))
 
+if __name__ == "__main__":
 
-waterVolume = 75708.236 #g
-waterSurfaceArea = 0.37161216 #m^2.  This is 2ft by 2ft square
-soilBedVolume = 424753 #g
-soilBedSurfaceArea = 167.15232 #m^2
-minimumTemperature = 15
-greenhouseDimensions = (4.8768, 1.8288, 2.7432) #g; density of air is 1225g/m^3.  We could also factor in humidity to add density but maybe later
+	waterMass = 0.20819755 * ThermalConstants.Density.water #m^3 * density (g/m^3).  55 gallons = 0.2082 cu meters
+	waterSurfaceArea = 0.74322432 #m^2.  This is 2ft by 4ft square (0.6096 * 1.2192)
+	soilBedMass = 424753 #g
+	soilBedDimensions = (3.6576, 0.4572, 0.3048) #m
+	soilBedSurfaceArea = soilBedDimensions[0] * soilBedDimensions[1] #m^2
+	minimumTemperature = 9
+	startingTemperature = 15
+	greenhouseDimensions = (4.8768, 1.8288, 2.7432) #g; density of air is 1225g/m^3.  We could also factor in humidity to add density but maybe later
+	debug = False
 
-
-def start(debug=False):
-	findSoilBankArea(waterVolume, waterSurfaceArea, soilBedVolume, soilBedSurfaceArea,  15, greenhouseDimensions, debug=debug)
-
+	findSoilBankArea(waterMass, waterSurfaceArea, soilBedMass, soilBedSurfaceArea,  minimumTemperature, greenhouseDimensions, startingTemperature = startingTemperature, debug = debug)
