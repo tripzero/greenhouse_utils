@@ -29,14 +29,13 @@ def time(k, area, tempHot, tempStart, distance, energy):
 def temperature(c, mass, energy):
 	return energy / (c * mass)
 
-def radiantEnergy(emissivity, surfaceArea, temperature, temperature2 = -273):
+def radiantEnergy(emissivity, surfaceArea, temperature):
 	" Q = emissivity * 5.67x10-8 * surfaceArea * (temperature^4 - temperature2^4)"
 	"We assume temp is C, we want K here"
 
 	temperature = 273 + temperature
-	temperature2 = 273 + temperature2
 
-	return emissivity * (5.67 * math.pow(10, -8)) * surfaceArea * (math.pow(temperature, 4) - math.pow(temperature2, 4))
+	return emissivity * (5.67 * math.pow(10, -8)) * surfaceArea * (math.pow(temperature, 4))
 
 
 class ThermalConstants:
