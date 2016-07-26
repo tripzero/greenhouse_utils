@@ -15,6 +15,9 @@ Q = (planksConstant * speedOfLight) / wavelength
 wavelength = 0.0029 / temperature
 
 TempFinal = Q / mc
+
+Stefan-Boltzmann law of radiation:
+Power = Area * emissivity * o * Temp^4
 '''
 
 from astral import Location
