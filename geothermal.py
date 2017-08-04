@@ -61,7 +61,7 @@ def wuGetAirTemperature(date):
 	else:
 		'''http://api.wunderground.com/api/Your_Key/history_YYYYMMDD/q/OR/Hillsboro.json'''
 		f = urlopen('http://api.wunderground.com/api/cbd714e056969068/history_{0}/q/OR/Hillsboro.json'.format(date.strftime("%Y%m%d")))
-		result = f.readall().decode('utf-8')
+		result = f.read().decode('utf-8')
 
 		with open(filename, "w") as f:
 			f.write(result)
@@ -157,7 +157,7 @@ def findSoilBankArea(waterMass, waterSurfaceArea, soilBedMass, soilBedSurfaceAre
 	surfaceAreaPex = (2 * math.pi * pexRadius) / 100 #m^2
 
 	solar_efficiency = 0.7
-	greenhouse_effect = 0.33 #you will lose this percentage of energy in radiation. if the rate is 0.9, you will retain 10% of your radiated energy
+	greenhouse_effect = 0.10 #you will regain this percentage of radiated energy
 
 	fail = True
 	failDate = None
@@ -170,7 +170,7 @@ def findSoilBankArea(waterMass, waterSurfaceArea, soilBedMass, soilBedSurfaceAre
 		greenhouse = Soil(mass = greenhouseSurfaceArea * ThermalConstants.Density.soil, temperature = startingTemperature)
 		air = Air(mass = airMass, temperature = startingTemperature)
 		air_outside = Air(mass = 99999999999999, temperature = startingTemperature)
-		
+
 		soilBankVolume = soilBankMass / ThermalConstants.Density.soil
 
 		fail = False
@@ -190,7 +190,7 @@ def findSoilBankArea(waterMass, waterSurfaceArea, soilBedMass, soilBedSurfaceAre
 			print("calculating day: {}.  Soil bed: {}, water: {}, greenhouse: {}".format(date, soilBed.temperature, water.temperature, greenhouse.temperature))
 
 			air_high_temp = 15
-			
+
 			"run through every second in the day"
 			for second in range(86400):
 
@@ -221,7 +221,7 @@ def findSoilBankArea(waterMass, waterSurfaceArea, soilBedMass, soilBedSurfaceAre
 
 				water.energy += solarPower * waterSurfaceArea * solar_efficiency
 				greenhouse.energy += solarPower * greenhouseSurfaceArea * solar_efficiency
-				
+
 				"the soil bed is likely shadowed by plants"
 				#soilBed.energy += solarPower * soilBedSurfaceArea * solar_efficiency
 
@@ -235,6 +235,15 @@ def findSoilBankArea(waterMass, waterSurfaceArea, soilBedMass, soilBedSurfaceAre
 				pl = pexLength(surfaceAreaPex, soilBankVolume)
 
 				water.transferTo(soilBank, pl, length=0.22)
+
+				"radiant aisle heating"
+				pl = pexLength(surfaceAreaPex, greenhouseSurfaceArea * 0.06)
+
+				water.transferTo(greenhouse, pl)
+
+				"greenhouse surface area can xfer to soilBed too"
+
+				greenhouse.transferTo(soilBed, soilBedSurfaceArea)
 
 				"caculate losses to the air."
 
@@ -250,10 +259,10 @@ def findSoilBankArea(waterMass, waterSurfaceArea, soilBedMass, soilBedSurfaceAre
 
 				"radiate to the outside world minus greenhouse effect"
 
-				greenhouse.energy -= (greenhouse.radiate() * greenhouse_effect)
-				water.energy -= (water.radiate() * greenhouse_effect)
-				soilBed.energy -= (soilBed.radiate() * greenhouse_effect)
-				air.energy -= (air.radiate() * greenhouse_effect)
+				greenhouse.energy += greenhouse.radiate() * greenhouse_effect
+				water.energy += water.radiate() * greenhouse_effect
+				soilBed.energy += soilBed.radiate() * greenhouse_effect
+				#air.radiate()
 
 				if air.temperature > air_high_temp:
 					air_high_temp = air.temperature
@@ -285,8 +294,8 @@ def findSoilBankArea(waterMass, waterSurfaceArea, soilBedMass, soilBedSurfaceAre
 				if hasOtherSide:
 					pyotherside.send("failDate", failDate)
 
-				print("We failed at {0} with temperature = {1} and soil bank mass = {2}".format(failDate, failTemperature, soilBankMass))
-				print("air temps: inside: {} outside: {}".format(air.temperature, air_outside.temperature))
+				print("We failed at {0} with soil bed temperature = {1}C and soil bank mass = {2}g".format(failDate, failTemperature, soilBankMass))
+				print("air temps: inside: {}C outside: {}C".format(air.temperature, air_outside.temperature))
 
 		if fail:
 			"we kinda failed, so let's double our soilBankVolume and try again"
@@ -301,7 +310,7 @@ if __name__ == "__main__":
 	soilBedMass = 424753 #g
 	soilBedDimensions = (3.6576, 0.4572, 0.3048) #m
 	soilBedSurfaceArea = soilBedDimensions[0] * soilBedDimensions[1] #m^2
-	minimumTemperature = 9
+	minimumTemperature = 0
 	startingTemperature = 15
 	greenhouseDimensions = (4.8768, 1.8288, 2.7432) #g; density of air is 1225g/m^3.  We could also factor in humidity to add density but maybe later
 	debug = False

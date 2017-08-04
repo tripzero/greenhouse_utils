@@ -3,6 +3,12 @@
 """
 import math
 
+def c_to_kelvin(c):
+	return c + 273.15
+
+def kelvin_to_c(k):
+	return k - 273.15
+
 def tempFinal(mass1, specificHeat1, temp1, mass2, specificHeat2, temp2):
 	return (mass1 * specificHeat1 * temp1 + mass2 * specificHeat2 * temp2) / (mass1 * specificHeat1 + mass2 * specificHeat2)
 
@@ -45,7 +51,7 @@ class ThermalConstants:
 		blackBody = 1
 		aluminum = 0.09
 
-	class Density: 
+	class Density:
 		"g/m^3"
 		air = 1225
 		soil = 1600000
@@ -72,19 +78,13 @@ class ThermalConstants:
 
 
 class ThermalObject(object):
-	specificHeat = None
-	density = None
-	conductivity = None
-	emissivity = None
 
-	temperature = 15
-
-	def __init__(self, specificHeat = None, density=None, conducitivty=None, emissivity=None, dimensions=None, temperature = 15, mass=None):
+	def __init__(self, specificHeat = None, density=None, conductivity=None, emissivity=None, dimensions=None, temperature = 15, mass=None):
 		object.__init__(self)
 
 		self.specificHeat = specificHeat
 		self.density = density
-		self.conducitivty = conducitivty
+		self.conductivity = conductivity
 		self.emissivity = emissivity
 		self.dimensions = dimensions
 
@@ -98,6 +98,10 @@ class ThermalObject(object):
 
 		self.temperature = temperature
 
+	@property
+	def massR(self):
+		"m = c^2/e"
+		return self.energy / math.pow(299792458, 2)
 
 	@property
 	def energy(self):
@@ -136,32 +140,32 @@ class ThermalObject(object):
 		if not contactArea:
 			contactArea = self.estimateContactArea(otherObject)
 
-		totalEt=0
+		tf = otherObject.temperature
+		ts = self.temperature
+		conductivity = otherObject.conductivity
 
-		for s in range(time):
-			conducitivty = otherObject.conducitivty
+		if self.temperature < otherObject.temperature:
+			conductivity = self.conductivity
+			tf = self.temperature
+			ts = otherObject.temperature
 
-			tf = otherObject.temperature
-			ts = self.temperature
+		et = None
 
-			if self.temperature > otherObject.temperature:
-				conducitivty = self.conducitivty
-				tf = self.temperature
-				ts = otherObject.temperature
+		if not convection:
+			et = energyTransferred(conductivity, tf, ts, contactArea, time, length)
 
-			et = None
-
-			if not convection:
-				et = energyTransferred(conducitivty, tf, ts, contactArea, 1, length)
-
-			else:
-				et = convectionEnergyTransfer(contactArea, otherObject.temperature, self.temperature)
+		else:
+			et = convectionEnergyTransfer(contactArea, otherObject.temperature, self.temperature)
 
 
-			totalEt+=et
+		totalEt=et
 
+		if conductivity == self.conductivity:
 			self.removeEnergy(et)
 			otherObject.addEnergy(et)
+		else:
+			otherObject.removeEnergy(et)
+			self.addEnergy(et)
 
 		return totalEt
 

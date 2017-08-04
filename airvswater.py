@@ -52,6 +52,7 @@ def airToWater(air, water, soil):
 
 	while round(water.temperature, 0) < round(air.temperature, 0) - 1:
 
+		air.transferTo(radiator)
 		air.transferTo(soil)
 		soil.transferTo(water)
 		air.transferTo(radiator)
