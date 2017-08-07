@@ -37,9 +37,6 @@ def temperature(c, mass, energy):
 
 def radiantEnergy(emissivity, surfaceArea, temperature):
 	" Q = emissivity * 5.67x10-8 * surfaceArea * (temperature^4 - temperature2^4)"
-	"We assume temp is C, we want K here"
-
-	temperature = 273 + temperature
 
 	return emissivity * (5.67 * math.pow(10, -8)) * surfaceArea * (math.pow(temperature, 4))
 

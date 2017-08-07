@@ -2,6 +2,13 @@
 	"greenhouse_name" : "redhouse",
 	"geothermal_dimensions" : [1.524, 1.0668, 4.7],
 	"greenhouse_dimensions" : [4.8768, 1.8288, 2.7432],
-	"water_mass" : 23058,
-	"pump_flow_rate" : 0.33
+	"water_mass" : 230580,
+	"pump_flow_rate" : 0.22,
+	"units_help" : {
+		"geothermal_dimensions" : "length x width x height in m",
+		"greenhouse_dimensions" : "length x width x height in m",
+		"water_mass" : "g",
+		"pump_flow_rate" : "l/s"
+	}
+
 }
