@@ -196,8 +196,20 @@ class Soil(ThermalObject):
 
 class Air(ThermalObject):
 
-	def __init__(self, dimensions=None, temperature=15, mass=None):
+	def __init__(self, dimensions=None, temperature=15, mass=None, humidity=0):
 		ThermalObject.__init__(self, ThermalConstants.SpecificHeat.air, ThermalConstants.Density.air, ThermalConstants.Conductivity.air, ThermalConstants.Emissivity.blackBody, dimensions, temperature, mass=mass)
+		self.humidity = humidity
+
+	@property
+	def dewpoint(self):
+		T = self.temperature
+		RH = self.humidity
+
+		dp = 243.04 * (math.log(RH / 100.0) + ((17.625 * T) / (243.04 + T))) / (17.625 - math.log(RH / 100.0) - ((17.625 * T) / (243.04 + T)))
+
+		return dp
+
+
 
 
 class Aluminum(ThermalObject):
