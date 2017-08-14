@@ -4,6 +4,8 @@
 	"greenhouse_dimensions" : [4.8768, 1.8288, 2.7432],
 	"water_mass" : 230580,
 	"pump_flow_rate" : 0.22,
+        "latitude" : 45.538021,
+        "longitude" : -122.947257,
 	"units_help" : {
 		"geothermal_dimensions" : "length x width x height in m",
 		"greenhouse_dimensions" : "length x width x height in m",
