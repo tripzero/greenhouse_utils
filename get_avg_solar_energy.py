@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 from astral import Location
 from datetime import datetime, timedelta
 import math
@@ -55,7 +57,7 @@ if __name__ == "__main__":
 	parser.add_argument("--greenhouse", help="greenhouse characteristics file", default=None, type=str)
 	parser.add_argument("--lat", help="latitude", default=None, type=float)
 	parser.add_argument("--lon", help="longitude", default=None, type=float)
-	parser.add_argument("--start", help="starting date in format YYYY-MM-DD", default=datetime, type=valid_date)
+	parser.add_argument("--start", help="starting date in format YYYY-MM-DD", default=datetime.now(), type=valid_date)
 	parser.add_argument("--days", help="number of days", default=30, type=int)
 	args = parser.parse_args()
 
@@ -78,3 +80,14 @@ if __name__ == "__main__":
 	print("avg radiation: {}W/m^2".format(np.average(radiation)))
 	print("max radiation: {}W/m^2".format(np.max(radiation)))
 	print("min radiation: {}W/m^2".format(np.min(radiation)))
+
+	if args.greenhouse and "greenhouse_dimensions" in greenhouse:
+		dimensions = greenhouse["greenhouse_dimensions"]
+		area = dimensions[0] * dimensions[1]
+
+		print("using greenhouse surface area: {}m^2".format(round(area, 1)))
+
+		print("greenhouse avg radiation: {}W".format(np.average(radiation) * area))
+		print("greenhouse max radiation: {}W".format(np.max(radiation) * area))
+		print("greenhouse min radiation: {}W".format(np.min(radiation) * area))
+
